@@ -48,31 +48,36 @@ def plot_currency(ax, currency, df_recent, current_price, predicted_price, signa
 
 def upload_to_instagram(image_path, caption_text):
     print("--- MENCOBA UPLOAD KE INSTAGRAM ---")
+    
+    # Ambil credentials dari Environment Variable
     username = os.environ.get("IG_USERNAME")
     password = os.environ.get("IG_PASSWORD")
+    session_id = os.environ.get("IG_SESSION_ID")
 
-    if not username or not password:
-        print("!! Gagal: Username/Password belum disetting di GitHub Secrets.")
-        return
+    cl = Client()
+    cl.delay_range = [1, 3]
 
     try:
-        cl = Client()
-        # Setting ini membantu mengurangi risiko deteksi bot
-        cl.delay_range = [1, 3]
+        # --- LOGIKA LOGIN BARU ---
+        if session_id:
+            print("Mencoba Login menggunakan Session ID (Lebih Aman)...")
+            cl.login_by_sessionid(session_id)
+        else:
+            print("Session ID tidak ditemukan. Mencoba Login Username/Password (Berisiko)...")
+            cl.login(username, password)
         
-        print(f"Login sebagai {username}...")
-        cl.login(username, password)
+        # Cek apakah login valid
+        print("Login Berhasil! Memulai upload...")
         
-        print("Sedang mengupload foto...")
         media = cl.photo_upload(
             path=image_path,
             caption=caption_text
         )
-        print(f"SUKSES! Foto berhasil diupload. Media PK: {media.pk}")
+        print(f"SUKSES MUTLAK! Foto berhasil diupload. Media PK: {media.pk}")
         
     except Exception as e:
         print(f"!! Gagal Upload Instagram: {e}")
-        print("Tips: Jika error 'ChallengeRequired', akun butuh verifikasi email/SMS manual.")
+        print("Saran: Jika error session, ambil ulang Session ID dari browser.")
 
 def run_bot():
     today_str = datetime.now().strftime('%Y-%m-%d')
@@ -139,38 +144,7 @@ def run_bot():
     caption_summary += "\nDisclaimer: Not Financial Advice.\n#forex #investasi #cuan #usd #yen #won"
     
     # Upload ke IG
-    def upload_to_instagram(image_path, caption_text):
-    print("--- MENCOBA UPLOAD KE INSTAGRAM ---")
-    
-    # Ambil credentials dari Environment Variable
-    username = os.environ.get("IG_USERNAME")
-    password = os.environ.get("IG_PASSWORD")
-    session_id = os.environ.get("IG_SESSION_ID")
-
-    cl = Client()
-    cl.delay_range = [1, 3]
-
-    try:
-        # --- LOGIKA LOGIN BARU ---
-        if session_id:
-            print("Mencoba Login menggunakan Session ID (Lebih Aman)...")
-            cl.login_by_sessionid(session_id)
-        else:
-            print("Session ID tidak ditemukan. Mencoba Login Username/Password (Berisiko)...")
-            cl.login(username, password)
-        
-        # Cek apakah login valid
-        print("Login Berhasil! Memulai upload...")
-        
-        media = cl.photo_upload(
-            path=image_path,
-            caption=caption_text
-        )
-        print(f"SUKSES MUTLAK! Foto berhasil diupload. Media PK: {media.pk}")
-        
-    except Exception as e:
-        print(f"!! Gagal Upload Instagram: {e}")
-        print("Saran: Jika error session, ambil ulang Session ID dari browser.")
+    upload_to_instagram(filename, caption_summary)
 
 if __name__ == "__main__":
     run_bot()
