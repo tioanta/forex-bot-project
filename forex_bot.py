@@ -86,10 +86,6 @@ def run_analysis():
         except Exception as e:
             print(f"Error pada {currency}: {e}")
             continue
-
-    print("\n" + "="*50)
-    print("HASIL AKHIR")
-    print("="*50)
     
 print("\n" + "="*50)
     print("HASIL AKHIR")
