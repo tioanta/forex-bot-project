@@ -1,4 +1,5 @@
 import os
+import random
 import yfinance as yf
 import pandas as pd
 from prophet import Prophet
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
 from instagrapi import Client
+
 
 # --- KONFIGURASI ---
 sns.set_theme(style="darkgrid")
@@ -18,7 +20,12 @@ TICKERS = {
     'USD': 'USDIDR=X', 'JPY': 'JPYIDR=X', 
     'KRW': 'KRWIDR=X', 'CNY': 'CNYIDR=X'
 }
-
+pertanyaan = [
+    "Menurutmu besok bakal naik atau turun lagi? 🤔",
+    "Tim Jual atau Tim Tahan nih hari ini? ☝️",
+    "Ada yang lagi nabung buat ke Jepang? 🇯🇵",
+    "Rate segini worth it gak buat tukar sekarang? 💸"
+]
 def get_recommendation(current_price, predicted_price, threshold=0.002):
     diff_percent = (predicted_price - current_price) / current_price
     if diff_percent > threshold: return "BELI", f"+{diff_percent*100:.2f}%"
@@ -119,7 +126,8 @@ def run_bot():
             future = m.make_future_dataframe(periods=1)
             forecast = m.predict(future)
             
-            current = float(df.iloc[-1]['y'])
+            current = f
+            loat(df.iloc[-1]['y'])
             pred = forecast.iloc[-1]['yhat']
             
             signal, change = get_recommendation(current, pred)
@@ -139,8 +147,9 @@ def run_bot():
     filename = "forex_forecast.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Gambar berhasil dibuat.")
+    selected_question = random.choice(pertanyaan)
+    caption_summary += f"\n\n{selected_question}\n\nDisclaimer: Not Financial Advice.\n#forex #investasi..."
 
-    caption_summary += "\nDisclaimer:just recommendation.\n#forex #investasi #cuan #usd #yen #won"
     
     upload_to_instagram(filename, caption_summary)
 
