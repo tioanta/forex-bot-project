@@ -2,9 +2,8 @@ name: Daily Forex Prediction
 
 on:
   schedule:
-    # Jalan setiap jam 00:00 UTC (Jam 07:00 WIB)
     - cron: '0 0 * * *'
-  workflow_dispatch: # Agar bisa ditrigger manual lewat tombol klik
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,12 +16,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'  # <--- PASTIKAN INI 3.10
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install tabulate # Untuk tampilan tabel cantik di log
+          pip install tabulate
 
       - name: Run Prediction Script
         run: python forex_bot.py
