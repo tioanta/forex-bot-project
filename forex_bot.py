@@ -139,7 +139,38 @@ def run_bot():
     caption_summary += "\nDisclaimer: Not Financial Advice.\n#forex #investasi #cuan #usd #yen #won"
     
     # Upload ke IG
-    upload_to_instagram(filename, caption_summary)
+    def upload_to_instagram(image_path, caption_text):
+    print("--- MENCOBA UPLOAD KE INSTAGRAM ---")
+    
+    # Ambil credentials dari Environment Variable
+    username = os.environ.get("IG_USERNAME")
+    password = os.environ.get("IG_PASSWORD")
+    session_id = os.environ.get("IG_SESSION_ID")
+
+    cl = Client()
+    cl.delay_range = [1, 3]
+
+    try:
+        # --- LOGIKA LOGIN BARU ---
+        if session_id:
+            print("Mencoba Login menggunakan Session ID (Lebih Aman)...")
+            cl.login_by_sessionid(session_id)
+        else:
+            print("Session ID tidak ditemukan. Mencoba Login Username/Password (Berisiko)...")
+            cl.login(username, password)
+        
+        # Cek apakah login valid
+        print("Login Berhasil! Memulai upload...")
+        
+        media = cl.photo_upload(
+            path=image_path,
+            caption=caption_text
+        )
+        print(f"SUKSES MUTLAK! Foto berhasil diupload. Media PK: {media.pk}")
+        
+    except Exception as e:
+        print(f"!! Gagal Upload Instagram: {e}")
+        print("Saran: Jika error session, ambil ulang Session ID dari browser.")
 
 if __name__ == "__main__":
     run_bot()
