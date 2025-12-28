@@ -2,7 +2,7 @@ name: Daily Forex Prediction
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *' # Jalan jam 07:00 WIB
   workflow_dispatch:
 
 jobs:
@@ -16,12 +16,21 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # <--- PASTIKAN INI 3.10
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install tabulate
 
-      - name: Run Prediction Script
+      - name: Run Prediction and Generate Image
         run: python forex_bot.py
+        
+      # --- TAMBAHAN BARU DI SINI ---
+      # Langkah ini akan menyimpan file 'forex_forecast.png' 
+      # agar bisa Anda download dari halaman Actions.
+      - name: Upload Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: forex-forecast-image
+          path: forex_forecast.png
+          retention-days: 1 # Simpan selama 1 hari saja cukup
