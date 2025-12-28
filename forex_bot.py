@@ -3,7 +3,8 @@ import pandas as pd
 from prophet import Prophet
 from datetime import datetime, timedelta
 
-# --- UPDATE 1: Perbaikan Kode Ticker (USDIDR=X lebih stabil) ---
+# --- KONFIGURASI TICKER ---
+# Menggunakan format USDIDR=X yang lebih stabil
 TICKERS = {
     'USD': 'USDIDR=X', 
     'JPY': 'JPYIDR=X',
@@ -12,6 +13,10 @@ TICKERS = {
 }
 
 def get_recommendation(current_price, predicted_price, threshold=0.002):
+    """
+    Menentukan sinyal Beli/Jual berdasarkan selisih persentase.
+    Threshold 0.002 artinya 0.2%
+    """
     diff_percent = (predicted_price - current_price) / current_price
     if diff_percent > threshold:
         return "BELI (Naik)"
@@ -28,51 +33,55 @@ def run_analysis():
         print(f"Sedang memproses {currency} ({ticker})...")
         
         try:
-            # Download Data
+            # 1. Download Data (2 Tahun terakhir)
+            # progress=False agar log tidak penuh loading bar
             df = yf.download(ticker, period="2y", interval="1d", progress=False)
             
-            # --- UPDATE 2: Cek apakah data kosong agar tidak error ---
+            # Cek apakah data kosong
             if df.empty:
                 print(f"!! Gagal mengambil data untuk {currency}. Lewati.")
                 continue
 
             df.reset_index(inplace=True)
             
-            # Standardisasi kolom Date
+            # 2. Standardisasi kolom Date
             if 'Date' in df.columns:
                 df['ds'] = df['Date']
             else:
                 df['ds'] = df.index
             
-            # Standardisasi kolom Close (Flatten multi-index jika ada)
+            # 3. Standardisasi kolom Close (Handling MultiIndex yfinance baru)
             if isinstance(df.columns, pd.MultiIndex):
-                # Cara aman ambil kolom Close jika multi-level
                 try:
+                    # Coba ambil kolom ('Close', 'USDIDR=X')
                     df['y'] = df[('Close', ticker)]
                 except KeyError:
+                    # Fallback jika struktur berbeda
                     df['y'] = df['Close']
             else:
                 df['y'] = df['Close']
             
+            # Bersihkan data
             df = df[['ds', 'y']].dropna()
 
+            # Pastikan data cukup untuk prediksi
             if len(df) < 10:
                 print(f"!! Data terlalu sedikit untuk {currency}. Lewati.")
                 continue
 
-            # Ambil harga terakhir
+            # Ambil harga terakhir (Real)
             current_price = float(df.iloc[-1]['y'])
             
-            # Training Prophet
+            # 4. Training Model Prophet
             m = Prophet(daily_seasonality=True, yearly_seasonality=True)
             m.fit(df)
             
-            # Prediksi Besok
+            # 5. Prediksi Besok (H+1)
             future = m.make_future_dataframe(periods=1)
             forecast = m.predict(future)
             predicted_price = forecast.iloc[-1]['yhat']
             
-            # Buat Rekomendasi
+            # 6. Buat Rekomendasi
             signal = get_recommendation(current_price, predicted_price)
             
             results.append({
@@ -86,18 +95,19 @@ def run_analysis():
         except Exception as e:
             print(f"Error pada {currency}: {e}")
             continue
-    
-print("\n" + "="*50)
-    print("HASIL AKHIR")
-    print("="*50)
+
+    # --- BAGIAN REPORTING ---
+    print("\n" + "="*65)
+    print("HASIL AKHIR PREDIKSI")
+    print("="*65)
     
     if not results:
         print("Tidak ada data yang berhasil diolah.")
     else:
-        # Print manual agar rapi tanpa library tambahan
-        # Perhatikan baris ini harus satu baris panjang (jangan diputus)
+        # Header Tabel
         print(f"{'Mata Uang':<10} | {'Harga Skrg':<15} | {'Prediksi':<15} | {'Sinyal'}")
-        print("-" * 60)
+        print("-" * 65)
+        # Isi Tabel
         for row in results:
             print(f"{row['Mata Uang']:<10} | {row['Harga Skrg']:<15} | {row['Prediksi']:<15} | {row['Sinyal']}")
 
