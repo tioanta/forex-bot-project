@@ -140,7 +140,7 @@ def run_bot():
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Gambar berhasil dibuat.")
 
-    caption_summary += "\nDisclaimer: Not Financial Advice.\n#forex #investasi #cuan #usd #yen #won"
+    caption_summary += "\nDisclaimer:just recommendation.\n#forex #investasi #cuan #usd #yen #won"
     
     upload_to_instagram(filename, caption_summary)
 
