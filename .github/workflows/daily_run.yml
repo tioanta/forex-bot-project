@@ -2,7 +2,7 @@ name: Daily Forex Prediction
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Jalan jam 07:00 WIB
+    - cron: '0 0 * * *' # Jam 07:00 WIB
   workflow_dispatch:
 
 jobs:
@@ -22,15 +22,16 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Run Prediction and Generate Image
+      - name: Run Bot (Predict & Upload)
+        env: # <--- INI BAGIAN PENTING
+          IG_USERNAME: ${{ secrets.IG_USERNAME }}
+          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
         run: python forex_bot.py
         
-      # --- TAMBAHAN BARU DI SINI ---
-      # Langkah ini akan menyimpan file 'forex_forecast.png' 
-      # agar bisa Anda download dari halaman Actions.
-      - name: Upload Image Artifact
+      - name: Upload Image Artifact (Backup)
         uses: actions/upload-artifact@v4
+        if: always() # Tetap simpan gambar meski upload IG gagal
         with:
           name: forex-forecast-image
           path: forex_forecast.png
-          retention-days: 1 # Simpan selama 1 hari saja cukup
+          retention-days: 1
