@@ -91,8 +91,19 @@ def run_analysis():
     print("HASIL AKHIR")
     print("="*50)
     
+print("\n" + "="*50)
+    print("HASIL AKHIR")
+    print("="*50)
+    
     if not results:
         print("Tidak ada data yang berhasil diolah.")
     else:
         # Print manual agar rapi tanpa library tambahan
-        print(f"{'Mata Uang':<10} | {'Harga Skrg':<15} |
+        # Perhatikan baris ini harus satu baris panjang (jangan diputus)
+        print(f"{'Mata Uang':<10} | {'Harga Skrg':<15} | {'Prediksi':<15} | {'Sinyal'}")
+        print("-" * 60)
+        for row in results:
+            print(f"{row['Mata Uang']:<10} | {row['Harga Skrg']:<15} | {row['Prediksi']:<15} | {row['Sinyal']}")
+
+if __name__ == "__main__":
+    run_analysis()
