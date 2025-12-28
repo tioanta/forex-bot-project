@@ -30,13 +30,11 @@ def plot_currency(ax, currency, df_recent, current_price, predicted_price, signa
     prediction_date = df_recent['ds'].iloc[-1] + timedelta(days=1)
     ax.scatter(prediction_date, predicted_price, color='#e67e22', s=150, zorder=5)
     
-    # Anotasi
     ax.annotate(f"{current_price:,.0f}", (df_recent['ds'].iloc[-1], current_price), 
                 xytext=(10, -20), textcoords='offset points', color='white', fontsize=9)
     ax.annotate(f"{predicted_price:,.0f}", (prediction_date, predicted_price), 
                 xytext=(10, 20), textcoords='offset points', color='#e67e22', fontweight='bold', fontsize=9)
 
-    # Box Summary
     rec_color = COLORS.get(signal, COLORS['HOLD'])
     props = dict(boxstyle='round,pad=0.5', facecolor=rec_color, alpha=0.9, edgecolor='none')
     ax.text(0.05, 0.95, f"{currency}\n{signal}", transform=ax.transAxes, fontsize=12,
@@ -49,7 +47,6 @@ def plot_currency(ax, currency, df_recent, current_price, predicted_price, signa
 def upload_to_instagram(image_path, caption_text):
     print("--- MENCOBA UPLOAD KE INSTAGRAM ---")
     
-    # Ambil credentials dari Environment Variable
     username = os.environ.get("IG_USERNAME")
     password = os.environ.get("IG_PASSWORD")
     session_id = os.environ.get("IG_SESSION_ID")
@@ -58,32 +55,39 @@ def upload_to_instagram(image_path, caption_text):
     cl.delay_range = [1, 3]
 
     try:
-        # --- LOGIKA LOGIN BARU ---
+        # 1. PROSES LOGIN
         if session_id:
-            print("Mencoba Login menggunakan Session ID (Lebih Aman)...")
+            print("Mencoba Login menggunakan Session ID...")
             cl.login_by_sessionid(session_id)
         else:
-            print("Session ID tidak ditemukan. Mencoba Login Username/Password (Berisiko)...")
+            print("Menggunakan Username & Password...")
             cl.login(username, password)
-        
-        # Cek apakah login valid
-        print("Login Berhasil! Memulai upload...")
-        
+
+        # 2. VERIFIKASI LOGIN (Langkah Baru)
+        # Kita coba ambil info akun sendiri untuk memastikan tiket valid
+        try:
+            cl.account_info()
+            print("✅ Login Terverifikasi! Sesi Valid.")
+        except Exception as e:
+            print(f"❌ Login Gagal/Sesi Kadaluwarsa. Pesan: {e}")
+            raise Exception("Session Invalid")
+
+        # 3. PROSES UPLOAD
+        print("Sedang mengupload foto...")
         media = cl.photo_upload(
             path=image_path,
             caption=caption_text
         )
-        print(f"SUKSES MUTLAK! Foto berhasil diupload. Media PK: {media.pk}")
+        print(f"🎉 SUKSES MUTLAK! Foto berhasil diupload. Media PK: {media.pk}")
         
     except Exception as e:
         print(f"!! Gagal Upload Instagram: {e}")
-        print("Saran: Jika error session, ambil ulang Session ID dari browser.")
+        print("Saran: Ambil ulang Session ID baru dari browser (Incognito) dan JANGAN Log Out.")
 
 def run_bot():
     today_str = datetime.now().strftime('%Y-%m-%d')
     print(f"--- MULAI PROSES: {today_str} ---")
     
-    # Setup Gambar
     plt.style.use('dark_background')
     fig, axs = plt.subplots(2, 2)
     fig.suptitle(f"FOREX PREDICTION (IDR)\n{today_str}", fontsize=18, fontweight='bold', color='white')
@@ -98,11 +102,10 @@ def run_bot():
             df = yf.download(ticker, period="1y", interval="1d", progress=False)
             if df.empty: continue
             
-            # Data preprocessing (Standardize columns)
             df.reset_index(inplace=True)
             if 'Date' in df.columns: df['ds'] = df['Date']
             else: df['ds'] = df.index
-            # Handle MultiIndex columns
+            
             if isinstance(df.columns, pd.MultiIndex):
                 try: df['y'] = df[('Close', ticker)]
                 except KeyError: df['y'] = df['Close']
@@ -111,7 +114,6 @@ def run_bot():
             df = df[['ds', 'y']].dropna()
             if len(df) < 30: continue
 
-            # Modelling
             m = Prophet(daily_seasonality=True)
             m.fit(df)
             future = m.make_future_dataframe(periods=1)
@@ -121,8 +123,6 @@ def run_bot():
             pred = forecast.iloc[-1]['yhat']
             
             signal, change = get_recommendation(current, pred)
-            
-            # Plotting & Caption
             plot_currency(ax, currency, df.tail(60), current, pred, signal, change)
             caption_summary += f"💵 {currency}: {signal} ({change})\n"
             has_data = True
@@ -132,7 +132,7 @@ def run_bot():
             continue
 
     if not has_data:
-        print("Tidak ada data yang cukup untuk membuat gambar.")
+        print("Tidak ada data.")
         return
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.90])
@@ -140,10 +140,8 @@ def run_bot():
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Gambar berhasil dibuat.")
 
-    # Tambahkan Hashtag
     caption_summary += "\nDisclaimer: Not Financial Advice.\n#forex #investasi #cuan #usd #yen #won"
     
-    # Upload ke IG
     upload_to_instagram(filename, caption_summary)
 
 if __name__ == "__main__":
