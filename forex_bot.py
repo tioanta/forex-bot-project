@@ -20,12 +20,7 @@ TICKERS = {
     'USD': 'USDIDR=X', 'JPY': 'JPYIDR=X', 
     'KRW': 'KRWIDR=X', 'CNY': 'CNYIDR=X'
 }
-pertanyaan = [
-    "Menurutmu besok bakal naik atau turun lagi? 🤔",
-    "Tim Jual atau Tim Tahan nih hari ini? ☝️",
-    "Ada yang lagi nabung buat ke Jepang? 🇯🇵",
-    "Rate segini worth it gak buat tukar sekarang? 💸"
-]
+
 def get_recommendation(current_price, predicted_price, threshold=0.002):
     diff_percent = (predicted_price - current_price) / current_price
     if diff_percent > threshold: return "BELI", f"+{diff_percent*100:.2f}%"
@@ -147,6 +142,14 @@ def run_bot():
     filename = "forex_forecast.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Gambar berhasil dibuat.")
+
+    pertanyaan = [
+    "Menurutmu besok bakal naik atau turun lagi? 🤔",
+    "Tim Jual atau Tim Tahan nih hari ini? ☝️",
+    "Ada yang lagi nabung buat ke Jepang? 🇯🇵",
+    "Rate segini worth it gak buat tukar sekarang? 💸"
+]
+    
     selected_question = random.choice(pertanyaan)
     caption_summary += f"\n\n{selected_question}\n\nDisclaimer: Not Financial Advice.\n#forex #investasi..."
 
