@@ -2,7 +2,7 @@ name: Daily Forex Prediction
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Jam 07:00 WIB
+    - cron: '0 2 * * *' # Ini jam 9 pagi WIB (02:00 UTC)
   workflow_dispatch:
 
 jobs:
