@@ -23,9 +23,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Bot (Predict & Upload)
-        env: # <--- INI BAGIAN PENTING
+        env:
           IG_USERNAME: ${{ secrets.IG_USERNAME }}
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
+          IG_SESSION_ID: ${{ secrets.IG_SESSION_ID }} # <--- TAMBAHAN BARU
         run: python forex_bot.py
         
       - name: Upload Image Artifact (Backup)
