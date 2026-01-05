@@ -15,13 +15,22 @@ plt.rcParams['figure.figsize'] = (12, 12)
 plt.rcParams['font.family'] = 'sans-serif'
 
 COLORS = {'BELI': '#2ecc71', 'JUAL': '#e74c3c', 'HOLD': '#95a5a6'}
-TICKERS = {
+
+# 1. Ticker Forex (Untuk Gambar)
+FOREX_TICKERS = {
     'USD': 'USDIDR=X', 'JPY': 'JPYIDR=X', 
     'KRW': 'KRWIDR=X', 'CNY': 'CNYIDR=X'
 }
 
+# 2. Ticker Saham LQ45 Pilihan (Untuk Caption)
+# Tambahkan atau kurangi sesuai keinginan. Kode harus diakhiri .JK
+STOCK_TICKERS = [
+    'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'BBNI.JK', 
+    'TLKM.JK', 'ASII.JK', 'UNTR.JK', 'ICBP.JK',
+    'ADRO.JK', 'PGAS.JK', 'MDKA.JK', 'GOTO.JK'
+]
+
 # --- BANK PERTANYAAN INTERAKTIF ---
-# Script akan memilih satu dari sini secara acak setiap hari
 QUESTIONS = [
     "Menurutmu besok Rupiah bakal menguat atau melemah lagi? 🤔",
     "Tim 'Serok Bawah' atau Tim 'Tunggu Gajian' nih? ☝️",
@@ -39,11 +48,11 @@ QUESTIONS = [
 
 def get_recommendation(current_price, predicted_price, threshold=0.002):
     diff_percent = (predicted_price - current_price) / current_price
-    if diff_percent > threshold: return "BELI", f"+{diff_percent*100:.2f}%"
-    elif diff_percent < -threshold: return "JUAL", f"{diff_percent*100:.2f}%"
-    else: return "HOLD", f"{diff_percent*100:.2f}%"
+    if diff_percent > threshold: return "BELI", diff_percent
+    elif diff_percent < -threshold: return "JUAL", diff_percent
+    else: return "HOLD", diff_percent
 
-def plot_currency(ax, currency, df_recent, current_price, predicted_price, signal, change_txt):
+def plot_currency(ax, currency, df_recent, current_price, predicted_price, signal, change_pct):
     ax.plot(df_recent['ds'], df_recent['y'], label='Historis', color='#3498db', linewidth=2)
     prediction_date = df_recent['ds'].iloc[-1] + timedelta(days=1)
     ax.scatter(prediction_date, predicted_price, color='#e67e22', s=150, zorder=5)
@@ -55,12 +64,70 @@ def plot_currency(ax, currency, df_recent, current_price, predicted_price, signa
 
     rec_color = COLORS.get(signal, COLORS['HOLD'])
     props = dict(boxstyle='round,pad=0.5', facecolor=rec_color, alpha=0.9, edgecolor='none')
-    ax.text(0.05, 0.95, f"{currency}\n{signal}", transform=ax.transAxes, fontsize=12,
+    
+    change_txt = f"+{change_pct*100:.2f}%" if change_pct > 0 else f"{change_pct*100:.2f}%"
+    
+    ax.text(0.05, 0.95, f"{currency}\n{signal} ({change_txt})", transform=ax.transAxes, fontsize=12,
             fontweight='bold', color='white', verticalalignment='top', bbox=props)
 
     ax.set_title(f"{currency} to IDR", fontsize=12, color='white')
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%d-%b'))
     ax.set_facecolor('#2c3e50')
+
+def analyze_top_stocks(tickers, top_n=3):
+    """
+    Menganalisa saham LQ45 dan mengembalikan top N rekomendasi terbaik
+    berdasarkan potensi kenaikan dalam 7 hari ke depan.
+    """
+    print(f"--- MENGANALISA {len(tickers)} SAHAM LQ45 ---")
+    recommendations = []
+
+    for ticker in tickers:
+        try:
+            # Download data 1 tahun
+            df = yf.download(ticker, period="1y", interval="1d", progress=False)
+            if df.empty or len(df) < 60: continue
+            
+            # Cleaning data untuk Prophet
+            df = df.reset_index()
+            if 'Date' in df.columns: df['ds'] = df['Date']
+            else: df['ds'] = df.index
+
+            # Handle MultiIndex column issues in yfinance update
+            if isinstance(df.columns, pd.MultiIndex):
+                try: df['y'] = df[('Close', ticker)]
+                except KeyError: df['y'] = df['Close']
+            else: df['y'] = df['Close']
+            
+            df = df[['ds', 'y']].dropna()
+            
+            current_price = float(df.iloc[-1]['y'])
+
+            # Prediksi 7 hari ke depan
+            m = Prophet(daily_seasonality=True)
+            m.fit(df)
+            future = m.make_future_dataframe(periods=7)
+            forecast = m.predict(future)
+            
+            # Ambil prediksi harga tertinggi minggu depan
+            future_price = forecast.iloc[-1]['yhat']
+            
+            diff_percent = (future_price - current_price) / current_price
+            
+            # Hanya ambil yang potensinya POSITIF (> 0.5%)
+            if diff_percent > 0.005:
+                recommendations.append({
+                    'code': ticker.replace('.JK', ''),
+                    'buy': current_price,
+                    'sell': future_price,
+                    'potential': diff_percent * 100
+                })
+        except Exception as e:
+            continue
+    
+    # Urutkan dari potensi profit tertinggi
+    recommendations.sort(key=lambda x: x['potential'], reverse=True)
+    return recommendations[:top_n]
 
 def upload_to_instagram(image_path, caption_text):
     print("--- MENCOBA UPLOAD KE INSTAGRAM ---")
@@ -102,15 +169,18 @@ def run_bot():
     today_str = datetime.now().strftime('%Y-%m-%d')
     print(f"--- MULAI PROSES: {today_str} ---")
     
+    # 1. BUAT GAMBAR FOREX
     plt.style.use('dark_background')
     fig, axs = plt.subplots(2, 2)
-    fig.suptitle(f"FOREX PREDICTION (IDR)\n{today_str}", fontsize=18, fontweight='bold', color='white')
+    fig.suptitle(f"MARKET UPDATE (IDR)\n{today_str}", fontsize=18, fontweight='bold', color='white')
     axs_flat = axs.flatten()
     
-    caption_summary = f"🤖 Prediksi Kurs Rupiah (IDR) - {today_str}\n\n"
-    has_data = False
+    caption_summary = f"🤖 Prediksi Pasar & Valas - {today_str}\n\n"
+    caption_summary += "🌏 **UPDATE KURS VALAS**:\n"
+    
+    has_forex_data = False
 
-    for i, (currency, ticker) in enumerate(TICKERS.items()):
+    for i, (currency, ticker) in enumerate(FOREX_TICKERS.items()):
         ax = axs_flat[i]
         try:
             df = yf.download(ticker, period="1y", interval="1d", progress=False)
@@ -138,29 +208,48 @@ def run_bot():
             
             signal, change = get_recommendation(current, pred)
             plot_currency(ax, currency, df.tail(60), current, pred, signal, change)
-            caption_summary += f"💵 {currency}: {signal} ({change})\n"
-            has_data = True
+            
+            # Formatting Text untuk Caption
+            icon = "🟢" if signal == "BELI" else "🔴" if signal == "JUAL" else "⚪"
+            caption_summary += f"{icon} {currency}: {signal} (IDR {current:,.0f})\n"
+            has_forex_data = True
             
         except Exception as e:
             print(f"Skip {currency}: {e}")
             continue
 
-    if not has_data:
-        print("Tidak ada data.")
+    if not has_forex_data:
+        print("Tidak ada data forex.")
         return
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.90])
     filename = "forex_forecast.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
-    print("Gambar berhasil dibuat.")
+    print("Gambar Forex berhasil dibuat.")
 
-    # --- PILIH PERTANYAAN RANDOM ---
+    # 2. ANALISA SAHAM (FITUR BARU)
+    top_stocks = analyze_top_stocks(STOCK_TICKERS, top_n=3)
+    
+    if top_stocks:
+        caption_summary += "\n🚀 **REKOMENDASI SAHAM LQ45** (Prediksi 7 Hari):\n"
+        for s in top_stocks:
+            caption_summary += (
+                f"💎 **{s['code']}** (Potensi +{s['potential']:.2f}%)\n"
+                f"   🛒 Area Beli: {s['buy']:,.0f}\n"
+                f"   🎯 Target Jual: {s['sell']:,.0f}\n"
+            )
+    else:
+        caption_summary += "\n⚠️ Pasar saham sedang volatile/sideways, tidak ada sinyal kuat hari ini.\n"
+
+    # 3. PENUTUP CAPTION
     selected_question = random.choice(QUESTIONS)
-    
-    # Gabungkan ke caption
     caption_summary += f"\n❓ QOTD: {selected_question}\n"
-    caption_summary += "\nDisclaimer: just recommendation.\n#forex #investasi #cuan #usd #yen #won #liburanjepang #jastipkorea"
+    caption_summary += (
+        "\nDisclaimer: Analisis berbasis AI (Prophet). DYOR (Do Your Own Research).\n"
+        "#saham #investasi #IHSG #LQ45 #forex #cuan #trading #BBCA #BBRI"
+    )
     
+    # 4. UPLOAD
     upload_to_instagram(filename, caption_summary)
 
 if __name__ == "__main__":
