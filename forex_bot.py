@@ -11,30 +11,34 @@ from instagrapi import Client
 
 # --- KONFIGURASI ---
 sns.set_theme(style="darkgrid")
-plt.rcParams['figure.figsize'] = (12, 12)
+# Ukuran diperpanjang sedikit ke bawah agar muat 3 baris
+plt.rcParams['figure.figsize'] = (12, 18) 
 plt.rcParams['font.family'] = 'sans-serif'
 
 COLORS = {'BELI': '#2ecc71', 'JUAL': '#e74c3c', 'HOLD': '#95a5a6'}
 
-# 1. Ticker Forex (Untuk Gambar)
+# 1. Ticker Forex (DITAMBAHKAN SAR/ARAB SAUDI)
 FOREX_TICKERS = {
-    'USD': 'USDIDR=X', 'JPY': 'JPYIDR=X', 
-    'KRW': 'KRWIDR=X', 'CNY': 'CNYIDR=X'
+    'USD': 'USDIDR=X', 
+    'JPY': 'JPYIDR=X', 
+    'KRW': 'KRWIDR=X', 
+    'CNY': 'CNYIDR=X',
+    'SAR': 'SARIDR=X'  # <--- Riyal Arab Saudi
 }
 
 # 2. Ticker Saham LQ45 Pilihan (Untuk Caption)
-# Tambahkan atau kurangi sesuai keinginan. Kode harus diakhiri .JK
 STOCK_TICKERS = [
     'BBCA.JK', 'BBRI.JK', 'BMRI.JK', 'BBNI.JK', 
     'TLKM.JK', 'ASII.JK', 'UNTR.JK', 'ICBP.JK',
-    'ADRO.JK', 'PGAS.JK', 'MDKA.JK', 'GOTO.JK'
+    'ADRO.JK', 'PGAS.JK', 'MDKA.JK', 'GOTO.JK',
+    'UNVR.JK', 'BRIS.JK'
 ]
 
 # --- BANK PERTANYAAN INTERAKTIF ---
 QUESTIONS = [
     "Menurutmu besok Rupiah bakal menguat atau melemah lagi? 🤔",
     "Tim 'Serok Bawah' atau Tim 'Tunggu Gajian' nih? ☝️",
-    "Ada yang lagi nabung buat liburan ke Jepang/Korea tahun ini? 🇯🇵🇰🇷",
+    "Ada yang lagi nabung buat liburan ke Jepang/Korea/Umroh tahun ini? 🕋✈️", # Update Umroh
     "Jujur, rate segini udah worth it buat tukar atau tunggu dulu? 💸",
     "Buat yang suka jastip, momen kayak gini bikin cuan atau boncos? 📦",
     "Kalau punya uang dingin, mending beli Dollar atau beli Seblak? 🤣",
@@ -75,46 +79,34 @@ def plot_currency(ax, currency, df_recent, current_price, predicted_price, signa
     ax.set_facecolor('#2c3e50')
 
 def analyze_top_stocks(tickers, top_n=3):
-    """
-    Menganalisa saham LQ45 dan mengembalikan top N rekomendasi terbaik
-    berdasarkan potensi kenaikan dalam 7 hari ke depan.
-    """
     print(f"--- MENGANALISA {len(tickers)} SAHAM LQ45 ---")
     recommendations = []
 
     for ticker in tickers:
         try:
-            # Download data 1 tahun
             df = yf.download(ticker, period="1y", interval="1d", progress=False)
             if df.empty or len(df) < 60: continue
             
-            # Cleaning data untuk Prophet
             df = df.reset_index()
             if 'Date' in df.columns: df['ds'] = df['Date']
             else: df['ds'] = df.index
 
-            # Handle MultiIndex column issues in yfinance update
             if isinstance(df.columns, pd.MultiIndex):
                 try: df['y'] = df[('Close', ticker)]
                 except KeyError: df['y'] = df['Close']
             else: df['y'] = df['Close']
             
             df = df[['ds', 'y']].dropna()
-            
             current_price = float(df.iloc[-1]['y'])
 
-            # Prediksi 7 hari ke depan
             m = Prophet(daily_seasonality=True)
             m.fit(df)
             future = m.make_future_dataframe(periods=7)
             forecast = m.predict(future)
             
-            # Ambil prediksi harga tertinggi minggu depan
             future_price = forecast.iloc[-1]['yhat']
-            
             diff_percent = (future_price - current_price) / current_price
             
-            # Hanya ambil yang potensinya POSITIF (> 0.5%)
             if diff_percent > 0.005:
                 recommendations.append({
                     'code': ticker.replace('.JK', ''),
@@ -125,7 +117,6 @@ def analyze_top_stocks(tickers, top_n=3):
         except Exception as e:
             continue
     
-    # Urutkan dari potensi profit tertinggi
     recommendations.sort(key=lambda x: x['potential'], reverse=True)
     return recommendations[:top_n]
 
@@ -171,7 +162,10 @@ def run_bot():
     
     # 1. BUAT GAMBAR FOREX
     plt.style.use('dark_background')
-    fig, axs = plt.subplots(2, 2)
+    
+    # --- PERUBAHAN DISINI (LAYOUT) ---
+    # Ubah grid menjadi 3 Baris x 2 Kolom untuk menampung 5 mata uang
+    fig, axs = plt.subplots(3, 2) 
     fig.suptitle(f"MARKET UPDATE (IDR)\n{today_str}", fontsize=18, fontweight='bold', color='white')
     axs_flat = axs.flatten()
     
@@ -181,6 +175,9 @@ def run_bot():
     has_forex_data = False
 
     for i, (currency, ticker) in enumerate(FOREX_TICKERS.items()):
+        # Pastikan index tidak melebihi jumlah grid yang tersedia
+        if i >= len(axs_flat): break
+            
         ax = axs_flat[i]
         try:
             df = yf.download(ticker, period="1y", interval="1d", progress=False)
@@ -209,7 +206,6 @@ def run_bot():
             signal, change = get_recommendation(current, pred)
             plot_currency(ax, currency, df.tail(60), current, pred, signal, change)
             
-            # Formatting Text untuk Caption
             icon = "🟢" if signal == "BELI" else "🔴" if signal == "JUAL" else "⚪"
             caption_summary += f"{icon} {currency}: {signal} (IDR {current:,.0f})\n"
             has_forex_data = True
@@ -218,16 +214,20 @@ def run_bot():
             print(f"Skip {currency}: {e}")
             continue
 
+    # Matikan (hide) slot grafik yang kosong sisa grid
+    for j in range(len(FOREX_TICKERS), len(axs_flat)):
+        axs_flat[j].axis('off')
+
     if not has_forex_data:
         print("Tidak ada data forex.")
         return
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.90])
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     filename = "forex_forecast.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print("Gambar Forex berhasil dibuat.")
 
-    # 2. ANALISA SAHAM (FITUR BARU)
+    # 2. ANALISA SAHAM
     top_stocks = analyze_top_stocks(STOCK_TICKERS, top_n=3)
     
     if top_stocks:
@@ -245,8 +245,8 @@ def run_bot():
     selected_question = random.choice(QUESTIONS)
     caption_summary += f"\n❓ QOTD: {selected_question}\n"
     caption_summary += (
-        "\nDisclaimer: Analisis berbasis AI (Prophet). DYOR (Do Your Own Research).\n"
-        "#saham #investasi #IHSG #LQ45 #forex #cuan #trading #BBCA #BBRI"
+        "\nDisclaimer: Analisis berbasis AI (Prophet). DYOR.\n"
+        "#saham #investasi #IHSG #forex #SAR #Riyal #Umroh #cuan"
     )
     
     # 4. UPLOAD
